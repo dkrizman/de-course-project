@@ -1,0 +1,35 @@
+[project]
+name = "de-course-project"
+version = "0.1.0"
+description = "Meridian Bikes data engineering project"
+requires-python = ">=3.13"
+dependencies = [
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    "ipykernel>=7.3.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "mypy>=1.9",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tools"]
+testpaths = ["tests"]
+# WHETHER an end-to-end test runs is a question of intent, so it is a marker — never an environment
+# variable. `uv run pytest` skips it; `uv run pytest -m e2e` asks for it, on purpose, and waits.
+markers = ["e2e: builds the images and runs the compose stack (slow)"]
+addopts = "-m 'not e2e'"
+
+[tool.mypy]
+files = ["src"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = "alembic.*"
+ignore_missing_imports = true
