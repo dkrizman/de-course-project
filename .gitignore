@@ -1,4 +1,9 @@
 __pycache__/
+*.egg-info/
+.egg-info/
+dist/
+build/
+*.pyc
 *.py[cod]
 *.ipynb
 .venv/
