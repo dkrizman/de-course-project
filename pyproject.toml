@@ -7,6 +7,8 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "alembic>=1.13",
     "ipykernel>=7.3.0",
+    "requests>=2.34.2",
+    "pandas>=3.0.5",
 ]
 
 [dependency-groups]
