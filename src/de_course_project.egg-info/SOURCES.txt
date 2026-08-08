@@ -1,0 +1,7 @@
+pyproject.toml
+src/data_detection.py
+src/de_course_project.egg-info/PKG-INFO
+src/de_course_project.egg-info/SOURCES.txt
+src/de_course_project.egg-info/dependency_links.txt
+src/de_course_project.egg-info/requires.txt
+src/de_course_project.egg-info/top_level.txt
