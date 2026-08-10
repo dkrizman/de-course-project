@@ -3,6 +3,8 @@ import xml.etree.ElementTree as ET
 import zipfile
 import io
 import pandas as pd
+from sqlalchemy import create_engine
+import os
 
 def find_s3_key_by_date(date_input, region):
     url = 'https://s3.amazonaws.com/tripdata/'
@@ -81,7 +83,26 @@ def read_files_for_month_pd(url, target_month, nrows=None):
         for csv_file in matching_files:
             print(f"Reading {csv_file}...")
             with zip_ref.open(csv_file) as csv_data:
-                df = pd.read_csv(csv_data, nrows=nrows)
+                df = pd.read_csv(csv_data, 
+                                 nrows=nrows,
+                                 parse_dates=['started_at', 'ended_at'],
+                                 dtype={
+                                    'start_lat': 'float64',
+                                    'start_lng': 'float64',
+                                    'end_lat': 'float64',
+                                    'end_lng': 'float64'
+                                })
+                # Drop rows with null values in required columns
+                required_cols = ['ride_id', 'start_station_id', 'end_station_id', 
+                               'started_at', 'ended_at', 'rideable_type']
+                before = len(df)
+                df = df.dropna(subset=required_cols)
+                after = len(df)
+                
+                print(f"  Dropped {before - after} rows with null required columns")
+                print(f"  Loaded {after} valid rows")
+                
+
                 dfs.append(df)
                 print(f"  Loaded {len(df)} rows")
         
@@ -98,3 +119,36 @@ def load_window_data(region, target_month):
     print(f"Loading data from URL: {url}")
     dataset = read_files_for_month_pd(url, target_month, nrows=1000)
     return dataset
+
+def write_to_database(df, table_name="trips"):
+    """Write DataFrame to PostgreSQL"""
+    database_url = os.getenv('DATABASE_URL')
+    if not database_url:
+        raise ValueError("DATABASE_URL environment variable not set")
+
+    if database_url.startswith('postgresql://'):
+        database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+    
+    engine = create_engine(database_url)
+    
+    try:
+        df.to_sql(table_name, engine, if_exists='append', index=False)
+        print(f"✓ Successfully wrote {len(df)} rows to {table_name}")
+    except Exception as e:
+        print(f"✗ Error writing to database: {e}")
+        raise
+
+def load_and_ingest(region, target_month):
+    """Load data from S3 and write to database"""
+    key = find_s3_key_by_date(target_month, region)
+    if not key:
+        raise ValueError(f"No S3 key found for {target_month} in region {region}")
+    
+    url = f'https://s3.amazonaws.com/tripdata/{key}'
+    print(f"Loading data from URL: {url}")
+    
+    dataset = read_files_for_month_pd(url, target_month)
+    if dataset is not None:
+        write_to_database(dataset)
+    else:
+        print("No data loaded")

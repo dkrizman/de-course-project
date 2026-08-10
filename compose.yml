@@ -24,9 +24,12 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://meridian:meridian@db:5432/meridian_trips
+      REGION: JC
+      TARGET_MONTH: 2025-12
     volumes:
       - ./drops:/data/drops
       - ./rejects:/data/rejects
+    restart: on-failure
 
   pgadmin:
     image: dpage/pgadmin4:latest
