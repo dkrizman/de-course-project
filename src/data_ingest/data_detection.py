@@ -60,65 +60,65 @@ def find_files_by_month(zip_ref, target_month):
     else:
         return root_files
 
-def read_files_for_month_pd(url, target_month, nrows=None):
-    """
-    Download zip, find files matching month, and read them.
-    """
-    response = requests.get(url)
+# def read_files_for_month_pd(url, target_month, nrows=None):
+#     """
+#     Download zip, find files matching month, and read them.
+#     """
+#     response = requests.get(url)
     
-    with zipfile.ZipFile(io.BytesIO(response.content)) as zip_ref:
-        # Find matching files
-        matching_files = find_files_by_month(zip_ref, target_month)
+#     with zipfile.ZipFile(io.BytesIO(response.content)) as zip_ref:
+#         # Find matching files
+#         matching_files = find_files_by_month(zip_ref, target_month)
         
-        if not matching_files:
-            print(f"No files found for month {target_month}")
-            return None
+#         if not matching_files:
+#             print(f"No files found for month {target_month}")
+#             return None
         
-        print(f"Found {len(matching_files)} file(s) for {target_month}:")
-        for f in matching_files:
-            print(f"  - {f}")
+#         print(f"Found {len(matching_files)} file(s) for {target_month}:")
+#         for f in matching_files:
+#             print(f"  - {f}")
         
-        # Read all matching files
-        dfs = []
-        for csv_file in matching_files:
-            print(f"Reading {csv_file}...")
-            with zip_ref.open(csv_file) as csv_data:
-                df = pd.read_csv(csv_data, 
-                                 nrows=nrows,
-                                 parse_dates=['started_at', 'ended_at'],
-                                 dtype={
-                                    'start_lat': 'float64',
-                                    'start_lng': 'float64',
-                                    'end_lat': 'float64',
-                                    'end_lng': 'float64'
-                                })
-                # Drop rows with null values in required columns
-                required_cols = ['ride_id', 'start_station_id', 'end_station_id', 
-                               'started_at', 'ended_at', 'rideable_type']
-                before = len(df)
-                df = df.dropna(subset=required_cols)
-                after = len(df)
+#         # Read all matching files
+#         dfs = []
+#         for csv_file in matching_files:
+#             print(f"Reading {csv_file}...")
+#             with zip_ref.open(csv_file) as csv_data:
+#                 df = pd.read_csv(csv_data, 
+#                                  nrows=nrows,
+#                                  parse_dates=['started_at', 'ended_at'],
+#                                  dtype={
+#                                     'start_lat': 'float64',
+#                                     'start_lng': 'float64',
+#                                     'end_lat': 'float64',
+#                                     'end_lng': 'float64'
+#                                 })
+#                 # Drop rows with null values in required columns
+#                 required_cols = ['ride_id', 'start_station_id', 'end_station_id', 
+#                                'started_at', 'ended_at', 'rideable_type']
+#                 before = len(df)
+#                 df = df.dropna(subset=required_cols)
+#                 after = len(df)
                 
-                print(f"  Dropped {before - after} rows with null required columns")
-                print(f"  Loaded {after} valid rows")
+#                 print(f"  Dropped {before - after} rows with null required columns")
+#                 print(f"  Loaded {after} valid rows")
                 
 
-                dfs.append(df)
-                print(f"  Loaded {len(df)} rows")
+#                 dfs.append(df)
+#                 print(f"  Loaded {len(df)} rows")
         
-        # Combine all files
-        if dfs:
-            combined_df = pd.concat(dfs, ignore_index=True)
-            print(f"\nTotal rows: {len(combined_df)}")
-            return combined_df
+#         # Combine all files
+#         if dfs:
+#             combined_df = pd.concat(dfs, ignore_index=True)
+#             print(f"\nTotal rows: {len(combined_df)}")
+#             return combined_df
         
-        return None
+#         return None
 
-def load_window_data(region, target_month):
-    url = f'https://s3.amazonaws.com/tripdata/{find_s3_key_by_date(target_month, region)}'
-    print(f"Loading data from URL: {url}")
-    dataset = read_files_for_month_pd(url, target_month, nrows=1000)
-    return dataset
+# def load_window_data(region, target_month):
+#     url = f'https://s3.amazonaws.com/tripdata/{find_s3_key_by_date(target_month, region)}'
+#     print(f"Loading data from URL: {url}")
+#     dataset = read_files_for_month_pd(url, target_month, nrows=1000)
+#     return dataset
 
 def write_to_database(df, table_name="trips"):
     """Write DataFrame to PostgreSQL"""
@@ -138,7 +138,7 @@ def write_to_database(df, table_name="trips"):
         print(f"✗ Error writing to database: {e}")
         raise
 
-def read_files_for_month(url, target_month):
+def read_files_for_month(url, target_month, region):
     """
     Download zip, find files matching month,
     read them and write to a consolidated CSV in /data/raw_bronze
@@ -161,7 +161,7 @@ def read_files_for_month(url, target_month):
         os.makedirs(output_dir, exist_ok=True)
 
         normalized_month = target_month.replace('-', '')
-        output_file = f"{output_dir}/{normalized_month}-consolidated-tripdata.csv"
+        output_file = f"{output_dir}/{region}-{normalized_month}-consolidated-tripdata.csv"
         
         row_count = 0
         header_written = False
@@ -200,5 +200,5 @@ def ingest_to_bronze(region, target_month):
     url = f'https://s3.amazonaws.com/tripdata/{key}'
     print(f"Loading data from URL: {url}")
     
-    read_files_for_month(url, target_month)
+    read_files_for_month(url, target_month, region)
 
