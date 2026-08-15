@@ -14,4 +14,4 @@ COPY pyproject.toml ./
 
 RUN pip install -e .
 
-CMD ["python", "-m", "data_ingest.ingest"]
+CMD ["python", "-m", "pipeline"]

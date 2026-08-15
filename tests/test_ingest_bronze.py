@@ -1,6 +1,6 @@
 import pytest
 from testcontainers.core.container import DockerContainer
-from data_ingest.data_detection import find_s3_key_by_date
+from pipeline.data_ingest.data_detection import find_s3_key_by_date, ingest_to_bronze
 
 
 @pytest.mark.parametrize(
