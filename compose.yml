@@ -27,9 +27,10 @@ services:
       REGION: JC
       TARGET_MONTH: 2025-12
     volumes:
-      - ./drops:/data/drops
-      - ./rejects:/data/rejects
-    restart: on-failure
+      - ./data/raw_bronze:/data/raw_bronze
+    restart: "no"  # ← KEY: Don't restart after exit
+    profiles:
+      - "ingest" 
 
   pgadmin:
     image: dpage/pgadmin4:latest

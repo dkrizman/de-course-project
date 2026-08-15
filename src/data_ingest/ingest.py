@@ -1,7 +1,7 @@
 import os
 from alembic.config import Config
 from alembic.command import upgrade
-from src.data_ingest.data_detection import load_and_ingest
+from data_ingest.data_detection import load_and_ingest
 
 def run_migrations():
     """Run Alembic migrations"""

@@ -138,6 +138,81 @@ def write_to_database(df, table_name="trips"):
         print(f"✗ Error writing to database: {e}")
         raise
 
+# def load_and_ingest(region, target_month):
+#     """Load data from S3 and write to database"""
+#     key = find_s3_key_by_date(target_month, region)
+#     if not key:
+#         raise ValueError(f"No S3 key found for {target_month} in region {region}")
+    
+#     url = f'https://s3.amazonaws.com/tripdata/{key}'
+#     print(f"Loading data from URL: {url}")
+    
+#     dataset = read_files_for_month_pd(url, target_month)
+#     if dataset is not None:
+#         write_to_database(dataset)
+#     else:
+#         print("No data loaded")
+
+def read_files_for_month(url, target_month):
+    """
+    Download zip, find files matching month, and read them.
+    
+    Args:
+        url: S3 URL to zip file
+        target_month: str in format "YYYY-MM" (e.g., "2024-01")
+        nrows: Number of rows to read per file
+    
+    Returns:
+        pd.DataFrame: Combined data from all matching files
+    """
+    response = requests.get(url)
+    
+    with zipfile.ZipFile(io.BytesIO(response.content)) as zip_ref:
+        # Find matching files
+        matching_files = find_files_by_month(zip_ref, target_month)
+        
+        if not matching_files:
+            print(f"No files found for month {target_month}")
+            return None
+        
+        print(f"Found {len(matching_files)} file(s) for {target_month}:")
+        # for f in matching_files:
+        #     print(f"  - {f}")
+
+        output_dir = "/data/raw_bronze"
+        os.makedirs(output_dir, exist_ok=True)
+
+        normalized_month = target_month.replace('-', '')
+        output_file = f"{output_dir}/{normalized_month}-consolidated-tripdata.csv"
+        
+        row_count = 0
+        header_written = False
+
+        with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
+            for csv_file in matching_files:
+                print(f"Reading {csv_file}...")
+                
+                with zip_ref.open(csv_file) as csv_data:
+                    text_stream = io.TextIOWrapper(csv_data, encoding='utf-8')
+                    
+                    for line_num, line in enumerate(text_stream):
+                        # Skip header on subsequent files
+                        if line_num == 0 and header_written:
+                            continue
+                        
+                        outfile.write(line)
+                        
+                        if line_num > 0:  # Don't count header
+                            row_count += 1
+                    
+                    header_written = True
+                    print(f"  Processed {row_count} total rows so far...")
+        
+        print(f"\n✓ Total rows written: {row_count}")
+        print(f"✓ Saved consolidated CSV to {output_file}")
+        
+        return None
+
 def load_and_ingest(region, target_month):
     """Load data from S3 and write to database"""
     key = find_s3_key_by_date(target_month, region)
@@ -147,8 +222,5 @@ def load_and_ingest(region, target_month):
     url = f'https://s3.amazonaws.com/tripdata/{key}'
     print(f"Loading data from URL: {url}")
     
-    dataset = read_files_for_month_pd(url, target_month)
-    if dataset is not None:
-        write_to_database(dataset)
-    else:
-        print("No data loaded")
+    read_files_for_month(url, target_month)
+
