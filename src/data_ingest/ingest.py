@@ -1,7 +1,7 @@
 import os
 from alembic.config import Config
 from alembic.command import upgrade
-from data_ingest.data_detection import load_and_ingest
+from data_ingest.data_detection import ingest_to_bronze
 
 def run_migrations():
     """Run Alembic migrations"""
@@ -24,19 +24,31 @@ def run_migrations():
 
 def main():
     """Main entry point"""
-    print("Starting trip data ingestion...")
+    # print("Starting trip data ingestion...")
     
     # Run migrations first
-    print("Running database migrations...")
-    run_migrations()
+    # print("Running database migrations...")
+    # run_migrations()
     
     # Load and ingest data
-    region = os.getenv('REGION', 'NYC')  # Default region
-    target_month = os.getenv('TARGET_MONTH', '2024-01')
+    # region = os.getenv('REGION', 'NYC')  # Default region
+    # target_month = os.getenv('TARGET_MONTH', '2024-01')
+
+    layer = os.environ["LAYER"]
+    job = os.environ["JOB"]
+    window = os.environ["WINDOW"]
+
+    FUNC_MAP = {
+        "ingest-to-bronze": ingest_to_bronze,
+        # silver and gold to be added later
+    }
     
-    print(f"Ingesting {region} data for {target_month}...")
-    load_and_ingest(region, target_month)
-    
+    print(f"Ingesting {job} data for {window}...")
+    try:
+        FUNC_MAP[layer](job.split(":")[1], window)
+    except Exception as e:
+        print(f"✗ Ingestion failed: {e}")
+        raise
     print("✓ Ingestion complete")
 
 if __name__ == "__main__":

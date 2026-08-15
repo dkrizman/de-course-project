@@ -138,32 +138,10 @@ def write_to_database(df, table_name="trips"):
         print(f"✗ Error writing to database: {e}")
         raise
 
-# def load_and_ingest(region, target_month):
-#     """Load data from S3 and write to database"""
-#     key = find_s3_key_by_date(target_month, region)
-#     if not key:
-#         raise ValueError(f"No S3 key found for {target_month} in region {region}")
-    
-#     url = f'https://s3.amazonaws.com/tripdata/{key}'
-#     print(f"Loading data from URL: {url}")
-    
-#     dataset = read_files_for_month_pd(url, target_month)
-#     if dataset is not None:
-#         write_to_database(dataset)
-#     else:
-#         print("No data loaded")
-
 def read_files_for_month(url, target_month):
     """
-    Download zip, find files matching month, and read them.
-    
-    Args:
-        url: S3 URL to zip file
-        target_month: str in format "YYYY-MM" (e.g., "2024-01")
-        nrows: Number of rows to read per file
-    
-    Returns:
-        pd.DataFrame: Combined data from all matching files
+    Download zip, find files matching month,
+    read them and write to a consolidated CSV in /data/raw_bronze
     """
     response = requests.get(url)
     
@@ -176,8 +154,8 @@ def read_files_for_month(url, target_month):
             return None
         
         print(f"Found {len(matching_files)} file(s) for {target_month}:")
-        # for f in matching_files:
-        #     print(f"  - {f}")
+        for f in matching_files:
+            print(f"  - {f}")
 
         output_dir = "/data/raw_bronze"
         os.makedirs(output_dir, exist_ok=True)
@@ -213,7 +191,7 @@ def read_files_for_month(url, target_month):
         
         return None
 
-def load_and_ingest(region, target_month):
+def ingest_to_bronze(region, target_month):
     """Load data from S3 and write to database"""
     key = find_s3_key_by_date(target_month, region)
     if not key:

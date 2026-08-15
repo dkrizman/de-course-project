@@ -1,13 +1,15 @@
-# Start all containers
 up:
-    docker compose up -d
+    docker compose up -d --build
 
-# Stop all containers
 down:
-    docker compose down
+    docker compose down -v
 
-ingest:
-    docker compose --profile ingest run --rm ingest
+# ingest:
+#     docker compose --profile ingest run --rm ingest
 
-logs:
-    docker compose logs -f ingest
+run layer job window:
+    docker compose --profile ingest run --rm --build \
+        -e LAYER="{{layer}}" \
+        -e JOB="{{job}}" \
+        -e WINDOW="{{window}}" \
+        ingest

@@ -24,11 +24,11 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://meridian:meridian@db:5432/meridian_trips
-      REGION: JC
-      TARGET_MONTH: 2025-12
+      # REGION: JC
+      # TARGET_MONTH: 2025-12
     volumes:
       - ./data/raw_bronze:/data/raw_bronze
-    restart: "no"  # ← KEY: Don't restart after exit
+    restart: "no"
     profiles:
       - "ingest" 
 
