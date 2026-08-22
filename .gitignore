@@ -12,3 +12,5 @@ build/
 .github
 
 data/raw_bronze/
+data/rejects/
+data/reports/

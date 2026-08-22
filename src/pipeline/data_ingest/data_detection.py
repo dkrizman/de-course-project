@@ -1,9 +1,21 @@
+from dataclasses import asdict, dataclass
+import json
+
 import requests
 import xml.etree.ElementTree as ET
 import zipfile
 import io
 from sqlalchemy import create_engine
 import os
+
+
+@dataclass
+class BronzeIngestSummary:
+    layer: str
+    job: str
+    window: str
+    objects: int
+    rows: dict
 
 def find_s3_key_by_date(date_input, region):
     url = 'https://s3.amazonaws.com/tripdata/'
@@ -96,7 +108,7 @@ def read_files_for_month(url, target_month, region):
         for f in matching_files:
             print(f"  - {f}")
 
-        output_dir = "/data/raw_bronze"
+        output_dir = "/app/data/raw_bronze"
         os.makedirs(output_dir, exist_ok=True)
 
         normalized_month = target_month.replace('-', '')
@@ -127,8 +139,16 @@ def read_files_for_month(url, target_month, region):
         
         print(f"\n✓ Total rows written: {row_count}")
         print(f"✓ Saved consolidated CSV to {output_file}")
+
+        bronze_summary = BronzeIngestSummary(
+            layer="bronze",
+            job=f"trips:{region.lower()}",
+            window=target_month,
+            objects=len(matching_files),
+            rows=row_count
+        )
         
-        return None
+        return bronze_summary
 
 def ingest_to_bronze(region, target_month):
     """Load data from S3 and write to database"""
@@ -139,5 +159,17 @@ def ingest_to_bronze(region, target_month):
     url = f'https://s3.amazonaws.com/tripdata/{key}'
     print(f"Loading data from URL: {url}")
     
-    read_files_for_month(url, target_month, region)
+    bronze_report = read_files_for_month(url, target_month, region)
+    with open(f"data/reports/bronze-{region.lower()}-{target_month.replace('-', '')}-report.json", 'w', encoding='utf-8') as f:
+        json.dump(asdict(bronze_report), f, indent=4)
 
+def inspect_bronze(region, window):
+    """Inspect the bronze data for a given region and window"""
+    report_file = f"data/reports/bronze-{region.lower()}-{window.replace('-', '')}-report.json"
+    if not os.path.exists(report_file):
+        raise FileNotFoundError(f"No report found for region={region}, window={window}")
+    
+    with open(report_file, 'r', encoding='utf-8') as f:
+        report_data = json.load(f)
+    
+    print(json.dumps(report_data, indent=4))
