@@ -20,3 +20,11 @@ inspect layer job window:
         -e JOB="{{job}}" \
         -e WINDOW="{{window}}" \
         ingest
+
+report layer job station window:
+    docker compose --profile ingest run --rm --build \
+        -e LAYER="{{layer}}" \
+        -e JOB="{{job}}" \
+        -e STATION="{{station}}" \
+        -e WINDOW="{{window}}" \
+        ingest

@@ -18,7 +18,16 @@ def read_monthly_trip(path: Path) -> Iterator[RawRow]:
         yield from csv.DictReader(f)
 
 
-_LEGACY_FIELD_MAP = {
+_JC_FIELD_MAP = {
+    "starttime": "started_at",
+    "stoptime": "ended_at",
+    "start station id": "start_station_id",
+    "start station name": "start_station_name",
+    "end station id": "end_station_id",
+    "end station name": "end_station_name",
+}
+
+_LEGACY_JC_FIELD_MAP = {
     "Start Time": "started_at",
     "Stop Time": "ended_at",
     "Start Station ID": "start_station_id",
@@ -28,14 +37,23 @@ _LEGACY_FIELD_MAP = {
 }
 
 def _synthesize_ride_id(raw: RawRow) -> str:
-    basis = f"{raw['Bike ID']}|{raw['Start Time']}|{raw['Stop Time']}"
-    return hashlib.sha1(basis.encode("utf-8")).hexdigest()
+    if "Bike ID" in raw and "Start Time" in raw and "Stop Time" in raw:
+        basis = f"{raw['Bike ID']}|{raw['Start Time']}|{raw['Stop Time']}"
+        return hashlib.sha1(basis.encode("utf-8")).hexdigest()
+    if "bikeid" in raw and "starttime" in raw and "stoptime" in raw:
+        basis = f"{raw['bikeid']}|{raw['starttime']}|{raw['stoptime']}"
+        return hashlib.sha1(basis.encode("utf-8")).hexdigest()
+    raise errors.MissingField("Cannot synthesize ride_id, required fields are missing")
 
 def normalize_row(raw: RawRow) -> RawRow:
     """Adapt either the current or legacy JC schema onto the canonical field names."""
     if "ride_id" in raw:
         return raw  # already canonical
-    row = {new: raw[old] for old, new in _LEGACY_FIELD_MAP.items() if old in raw}
+    if "starttime" in raw:
+        row = {new: raw[old] for old, new in _JC_FIELD_MAP.items() if old in raw}
+        row["ride_id"] = _synthesize_ride_id(raw)
+        return row
+    row = {new: raw[old] for old, new in _LEGACY_JC_FIELD_MAP.items() if old in raw}
     row["ride_id"] = _synthesize_ride_id(raw)
     return row
 
