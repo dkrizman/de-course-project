@@ -7,7 +7,10 @@ import zipfile
 import io
 from sqlalchemy import create_engine
 import os
+import logging
 
+log = logging.getLogger("data_detection")
+log.setLevel(logging.INFO)
 
 @dataclass
 class BronzeIngestSummary:
@@ -30,11 +33,13 @@ def find_s3_key_by_date(date_input, region):
     
     for key in keys:
         if key.startswith(normalized_date):
+            log.info(f"Found S3 key for {date_input} in region {region}: {key}")
             return key
     
     year_only = date_input.split('-')[0]
     for key in keys:
         if key.startswith(year_only):
+            log.info(f"Found S3 key for year {year_only} in region {region}: {key}")
             return key
     
     return None
@@ -67,8 +72,10 @@ def find_files_by_month(zip_ref, target_month):
             root_files.append(file_path)
 
     if nested_files:
+        log.info(f"Found {len(nested_files)} nested file(s) for month {target_month}")
         return nested_files
     else:
+        log.info(f"Found {len(root_files)} root file(s) for month {target_month}")
         return root_files
 
 def write_to_database(df, table_name="trips"):
@@ -84,9 +91,9 @@ def write_to_database(df, table_name="trips"):
     
     try:
         df.to_sql(table_name, engine, if_exists='append', index=False)
-        print(f"✓ Successfully wrote {len(df)} rows to {table_name}")
+        log.info(f"✓ Successfully wrote {len(df)} rows to {table_name}")
     except Exception as e:
-        print(f"✗ Error writing to database: {e}")
+        log.error(f"✗ Error writing to database: {e}")
         raise
 
 def read_files_for_month(url, target_month, region):
@@ -101,12 +108,12 @@ def read_files_for_month(url, target_month, region):
         matching_files = find_files_by_month(zip_ref, target_month)
         
         if not matching_files:
-            print(f"No files found for month {target_month}")
+            log.warning(f"No files found for month {target_month}")
             return None
         
-        print(f"Found {len(matching_files)} file(s) for {target_month}:")
+        log.info(f"Found {len(matching_files)} file(s) for {target_month}:")
         for f in matching_files:
-            print(f"  - {f}")
+            log.info(f"  - {f}")
 
         output_dir = "/app/data/raw_bronze"
         os.makedirs(output_dir, exist_ok=True)
@@ -119,7 +126,7 @@ def read_files_for_month(url, target_month, region):
 
         with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
             for csv_file in matching_files:
-                print(f"Reading {csv_file}...")
+                log.info(f"Reading {csv_file}...")
                 
                 with zip_ref.open(csv_file) as csv_data:
                     text_stream = io.TextIOWrapper(csv_data, encoding='utf-8')
@@ -135,10 +142,10 @@ def read_files_for_month(url, target_month, region):
                             row_count += 1
                     
                     header_written = True
-                    print(f"  Processed {row_count} total rows so far...")
+                    log.info(f"  Processed {row_count} total rows so far...")
         
-        print(f"\n✓ Total rows written: {row_count}")
-        print(f"✓ Saved consolidated CSV to {output_file}")
+        log.info(f"\n✓ Total rows written: {row_count}")
+        log.info(f"✓ Saved consolidated CSV to {output_file}")
 
         bronze_summary = BronzeIngestSummary(
             layer="bronze",
@@ -157,7 +164,7 @@ def ingest_to_bronze(region, target_month):
         raise ValueError(f"No S3 key found for {target_month} in region {region}")
     
     url = f'https://s3.amazonaws.com/tripdata/{key}'
-    print(f"Loading data from URL: {url}")
+    log.info(f"Loading data from URL: {url}")
     
     bronze_report = read_files_for_month(url, target_month, region)
     with open(f"data/reports/bronze-{region.lower()}-{target_month.replace('-', '')}-report.json", 'w', encoding='utf-8') as f:
@@ -171,5 +178,6 @@ def inspect_bronze(region, window):
     
     with open(report_file, 'r', encoding='utf-8') as f:
         report_data = json.load(f)
-    
-    print(json.dumps(report_data, indent=4))
+
+    log.info(f"Bronze Ingest Report for region={region}, window={window}:")
+    log.info(json.dumps(report_data, indent=4))
