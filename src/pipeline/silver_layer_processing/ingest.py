@@ -14,9 +14,7 @@ from .model import Report, IngestSummary
 from .errors import RowError
 from .loader import load_trips
 from .model import Report, Trip
-from .slots import job_slot
 from .reader import parse_row, read_monthly_trip
-from .settings import database_url
 
 log = logging.getLogger("trip_ingest")
 log.setLevel(logging.INFO)
@@ -105,4 +103,4 @@ def inspect_silver(region, window):
     with open(report_file, 'r', encoding='utf-8') as f:
         report_data = json.load(f)
     
-    print(json.dumps(report_data, indent=4))
+    log.info(json.dumps(report_data, indent=4))
