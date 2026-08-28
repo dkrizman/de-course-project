@@ -1,8 +1,3 @@
-"""Given — do not edit.
-
-The database these tests use is the one **you** stood up in Task 1, at the DSN in `settings.py`.
-There is no test container here: the point of Task 1 is that you run Postgres yourself.
-"""
 from __future__ import annotations
 
 from typing import Iterator

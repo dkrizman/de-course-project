@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from testcontainers.core.container import DockerContainer
 from pipeline.data_ingest.data_detection import find_s3_key_by_date
@@ -38,5 +40,20 @@ def test_ingest_to_bronze(tmp_path, ingest_image):
             print(stderr.decode(errors="replace"))
 
     assert exit_code == 0
-    assert (raw_bronze / "jc-202606-consolidated-tripdata.csv").exists()
-    assert (reports / "bronze-jc-202606-report.json").exists()
+    csv_path = raw_bronze / "jc-202606-consolidated-tripdata.csv"
+    assert csv_path.exists()
+
+    report_path = reports / "bronze-jc-202606-report.json"
+    assert report_path.exists()
+    report_data = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report_data == {
+        "layer": "bronze",
+        "job": "trips:jc",
+        "window": "2026-06",
+        "objects": 1,
+        "rows": 109897,
+    }
+
+    with csv_path.open(encoding="utf-8") as f:
+        row_count = sum(1 for _ in f) - 1  # exclude header
+    assert row_count == report_data["rows"]
