@@ -1,6 +1,6 @@
 import pytest
 from testcontainers.core.container import DockerContainer
-from pipeline.data_ingest.data_detection import find_s3_key_by_date, ingest_to_bronze
+from pipeline.data_ingest.data_detection import find_s3_key_by_date
 
 
 @pytest.mark.parametrize(
@@ -15,25 +15,28 @@ def test_find_s3_key_by_date(date, city, expected_key):
     assert find_s3_key_by_date(date, city) == expected_key
 
 
-def test_ingest_to_bronze(tmp_path):
+def test_ingest_to_bronze(tmp_path, ingest_image):
+    raw_bronze = tmp_path / "raw_bronze"
+    reports = tmp_path / "reports"
+    raw_bronze.mkdir()
+    reports.mkdir()
+
     container = (
-        DockerContainer("meridian-ingest-test")
+        DockerContainer(ingest_image)
         .with_env("LAYER", "ingest-to-bronze")
         .with_env("JOB", "trips:jc")
         .with_env("WINDOW", "2026-06")
-        .with_volume_mapping(
-            str(tmp_path),
-            "/data/raw_bronze",
-            mode="rw",
-        )
+        .with_volume_mapping(str(raw_bronze), "/app/data/raw_bronze", mode="rw")
+        .with_volume_mapping(str(reports), "/app/data/reports", mode="rw")
     )
 
     with container:
         exit_code = container.wait()
-        # stdout, stderr = container.get_logs()
-
-        # print(stdout.decode())
-        # print(stderr.decode())
+        if exit_code != 0:
+            stdout, stderr = container.get_logs()
+            print(stdout.decode(errors="replace"))
+            print(stderr.decode(errors="replace"))
 
     assert exit_code == 0
-    assert (tmp_path / "jc-202606-consolidated-tripdata.csv").exists()
+    assert (raw_bronze / "jc-202606-consolidated-tripdata.csv").exists()
+    assert (reports / "bronze-jc-202606-report.json").exists()

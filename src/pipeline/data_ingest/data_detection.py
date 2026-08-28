@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass
+from pathlib import Path
 import json
 
 import requests
@@ -167,16 +168,19 @@ def ingest_to_bronze(region, target_month):
     log.info(f"Loading data from URL: {url}")
     
     bronze_report = read_files_for_month(url, target_month, region)
-    with open(f"data/reports/bronze-{region.lower()}-{target_month.replace('-', '')}-report.json", 'w', encoding='utf-8') as f:
+    reports_dir = Path("/app/data/reports")
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    report_path = reports_dir / f"bronze-{region.lower()}-{target_month.replace('-', '')}-report.json"
+    with report_path.open("w", encoding="utf-8") as f:
         json.dump(asdict(bronze_report), f, indent=4)
 
 def inspect_bronze(region, window):
     """Inspect the bronze data for a given region and window"""
-    report_file = f"data/reports/bronze-{region.lower()}-{window.replace('-', '')}-report.json"
-    if not os.path.exists(report_file):
+    report_file = Path("/app/data/reports") / f"bronze-{region.lower()}-{window.replace('-', '')}-report.json"
+    if not report_file.exists():
         raise FileNotFoundError(f"No report found for region={region}, window={window}")
     
-    with open(report_file, 'r', encoding='utf-8') as f:
+    with report_file.open('r', encoding='utf-8') as f:
         report_data = json.load(f)
 
     log.info(f"Bronze Ingest Report for region={region}, window={window}:")

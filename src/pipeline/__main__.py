@@ -10,11 +10,11 @@ from pipeline.data_ingest.data_detection import inspect_bronze
 from pipeline.gold_layer_processing.silver_to_gold import transform_to_gold
 from pipeline.gold_layer_processing.inspect_gold import inspect_gold
 
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
 def main():
     """Main entry point"""
-
-    print("Running database migrations...")
-    run_migrations()
 
     layer = os.environ["LAYER"]
     job = os.environ["JOB"]
@@ -24,6 +24,11 @@ def main():
     else:
         region = job
     station = os.environ.get("STATION")
+
+    needs_db = layer in {"transform-to-silver", "transform-to-gold"}
+    if needs_db:
+        print("Running database migrations...")
+        run_migrations()
 
     try:
         if layer == "ingest-to-bronze":
