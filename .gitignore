@@ -1,0 +1,16 @@
+__pycache__/
+*.egg-info/
+.egg-info/
+dist/
+build/
+*.pyc
+*.py[cod]
+*.ipynb
+.venv/
+.pytest_cache/
+.mypy_cache/
+.github
+
+data/raw_bronze/
+data/rejects/
+data/reports/
