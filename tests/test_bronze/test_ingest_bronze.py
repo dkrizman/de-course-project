@@ -16,7 +16,7 @@ from pipeline.data_ingest.data_detection import find_s3_key_by_date
 def test_find_s3_key_by_date(date, city, expected_key):
     assert find_s3_key_by_date(date, city) == expected_key
 
-
+@pytest.mark.e2e
 def test_ingest_to_bronze(tmp_path, ingest_image):
     raw_bronze = tmp_path / "raw_bronze"
     reports = tmp_path / "reports"
