@@ -1,0 +1,63 @@
+import os
+from alembic.config import Config
+from alembic.command import upgrade
+from pipeline.data_ingest.data_detection import ingest_to_bronze
+from pipeline.silver_layer_processing.ingest import inspect_silver, transform_to_silver
+from pipeline.silver_layer_processing.migrate import run_migrations
+import psycopg
+from pipeline.silver_layer_processing.settings import database_url
+from pipeline.data_ingest.data_detection import inspect_bronze
+from pipeline.gold_layer_processing.silver_to_gold import transform_to_gold
+from pipeline.gold_layer_processing.inspect_gold import inspect_gold
+
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+
+def main():
+    """Main entry point"""
+
+    layer = os.environ["LAYER"]
+    job = os.environ["JOB"]
+    window = os.environ["WINDOW"]
+    if ":" in job:
+        region = job.split(":")[1]
+    else:
+        region = job
+    station = os.environ.get("STATION")
+
+    needs_db = layer in {"transform-to-silver", "transform-to-gold"}
+    if needs_db:
+        print("Running database migrations...")
+        run_migrations()
+
+    try:
+        if layer == "ingest-to-bronze":
+            ingest_to_bronze(region, window)
+            print("✓ Ingestion complete")
+        elif layer == "transform-to-silver":
+            with psycopg.connect(database_url()) as conn:
+                transform_to_silver(conn, region, window)
+            print("✓ transform_to_silver complete")
+        elif layer == "bronze":
+            inspect_bronze(region, window)
+            print("✓ inspect_bronze complete")
+        elif layer == "silver":
+            inspect_silver(region, window)
+            print("✓ inspect_silver complete")
+        elif layer == "transform-to-gold":
+            with psycopg.connect(database_url()) as conn:
+                transform_to_gold(conn, window)
+            print("✓ transform_to_gold complete")
+        elif layer == "daily-station-trips":
+            with psycopg.connect(database_url()) as conn:
+                inspect_gold(conn, window, station, region)
+            print("✓ inspect_gold complete")
+        else:
+            raise ValueError(f"Unknown layer: {layer}")
+    except Exception as e:
+        print(f"✗ Ingestion failed: {e}")
+        raise
+    
+
+if __name__ == "__main__":
+    main()
