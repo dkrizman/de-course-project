@@ -70,6 +70,7 @@ def transform_to_silver(conn: psycopg.Connection, region: str, window: str) -> R
             return False
         return "jc" in name if region.lower() == "jc" else True
 
+    # find matching files for the requested region and window
     candidates = [p for p in bronze_dir.iterdir() if p.is_file() and matches(p)]
     if not candidates:
         raise FileNotFoundError(
