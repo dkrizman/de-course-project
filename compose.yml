@@ -45,6 +45,44 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+  
+  airflow-init-db:
+    image: postgres:16
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: meridian
+    entrypoint: ["bash", "-c"]
+    command:
+      - >
+        psql -h db -U meridian -d meridian_trips -tc
+        "SELECT 1 FROM pg_database WHERE datname = 'airflow'" | grep -q 1 ||
+        psql -h db -U meridian -d meridian_trips -c "CREATE DATABASE airflow OWNER meridian"
+    restart: "no"
 
+  airflow:
+    build: ./airflow
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://meridian:meridian@db:5432/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "True"
+      # AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:admin"
+      # _PIP_ADDITIONAL_REQUIREMENTS: apache-airflow-providers-docker
+      PROJECT_DIR: ${PWD}
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}:${PWD}
+    ports:
+      - "8080:8080"
+    command: standalone
+    restart: unless-stopped
 volumes:
   db_data:
