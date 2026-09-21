@@ -31,5 +31,5 @@ report layer job station window:
 
 
 run-pipeline market month:
-    docker compose exec airflow airflow dags trigger ingest_to_bronze \
+    docker compose exec airflow airflow dags trigger ingest_trips \
         --conf '{"market": "{{market}}", "month": "{{month}}"}'
