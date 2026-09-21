@@ -5,6 +5,12 @@ import uuid
 
 from airflow.sdk import dag, task, TriggerRule
 
+import calendar
+
+def days_in_month(month: str) -> int:
+    year, month = map(int, month.split("-"))
+    return calendar.monthrange(year, month)[1]
+
 @dag(
     dag_id="ingest_trips",
     schedule=None,
@@ -71,22 +77,28 @@ def ingest_trips_dag():
             stderr=subprocess.STDOUT,
         )
 
-    # @task
-    # def run_transform_gold(dag_run=None):
-    #     market = dag_run.conf["market"]
-    #     month = dag_run.conf["month"]
-    #     subprocess.run(
-    #         [
-    #             "docker", "compose", "--profile", "ingest", "run", "--rm", "--build",
-    #             "-e", "LAYER=transform-to-gold",
-    #             "-e", f"JOB={market}",
-    #             "-e", f"WINDOW={month}",
-    #             "ingest",
-    #         ],
-    #         cwd=os.environ["PROJECT_DIR"],
-    #         check=True,
-    #         stderr=subprocess.STDOUT,
-    #     )
+    @task
+    def run_transform_gold(container_name, dag_run=None):
+        market = dag_run.conf["market"]
+        month = dag_run.conf["month"]
+        days = days_in_month(month)
+        for day in range(1, days + 1):
+            day_str = f"{month}-{day:02d}"
+            print(f"Processing day: {day_str}")
+            subprocess.run(
+                [
+                    "docker", "exec",
+                    "-e", "LAYER=transform-to-gold",
+                    "-e", f"JOB={market}",
+                    "-e", f"WINDOW={day_str}",
+                    container_name,
+                    "python", "-m", "pipeline",
+                ],
+                cwd=os.environ["PROJECT_DIR"],
+                check=True,
+                stderr=subprocess.STDOUT,
+            )
+
     @task(trigger_rule=TriggerRule.ALL_DONE)
     def cleanup_container(container_name):
         subprocess.run(
@@ -98,12 +110,12 @@ def ingest_trips_dag():
     container_name = start_container()
     ingest_bronze = run_ingest(container_name)
     transform_silver = run_transform_silver(container_name)
-    # transform_gold = run_transform_gold(container_name)
+    transform_gold = run_transform_gold(container_name)
 
-    ingest_bronze >> transform_silver# >> transform_gold
+    ingest_bronze >> transform_silver >> transform_gold
 
     cleanup = cleanup_container(container_name)
 
-    [ingest_bronze,transform_silver] >> cleanup
+    [ingest_bronze, transform_silver, transform_gold] >> cleanup
 
 ingest_trips_dag()
