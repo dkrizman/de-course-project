@@ -13,17 +13,20 @@ from airflow.sdk import dag, task
 )
 def ingest_to_bronze_dag():
     @task
-    def run_ingest():
+    def run_ingest(dag_run=None):
+        market = dag_run.conf["market"]
+        month = dag_run.conf["month"]
         subprocess.run(
             [
                 "docker", "compose", "--profile", "ingest", "run", "--rm", "--build",
                 "-e", "LAYER=ingest-to-bronze",
-                "-e", "JOB=JC",
-                "-e", "WINDOW=2016-09",
+                "-e", f"JOB={market}",
+                "-e", f"WINDOW={month}",
                 "ingest",
             ],
             cwd=os.environ["PROJECT_DIR"],
             check=True,
+            stderr=subprocess.STDOUT,
         )
 
     run_ingest()
