@@ -14,3 +14,8 @@ build/
 data/raw_bronze/
 data/rejects/
 data/reports/
+.DS_Store
+**/.DS_Store
+
+airflow/logs/
+airflow/plugins/
