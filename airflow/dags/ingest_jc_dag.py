@@ -7,18 +7,20 @@ from airflow.sdk import dag, task, TriggerRule
 
 import calendar
 
+MARKET = "jc"
+
 def days_in_month(month: str) -> int:
     year, month = map(int, month.split("-"))
     return calendar.monthrange(year, month)[1]
 
 @dag(
-    dag_id="ingest_trips",
+    dag_id="ingest_jc",
     schedule=None,
     start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=["bronze"],
 )
-def ingest_trips_dag():
+def ingest_jc_dag():
     @task
     def start_container(dag_run=None):
         container_name = f"pipeline-{uuid.uuid4().hex}"
@@ -43,7 +45,7 @@ def ingest_trips_dag():
 
     @task
     def run_ingest(container_name, dag_run=None):
-        market = dag_run.conf["market"]
+        market = MARKET
         month = dag_run.conf["month"]
         subprocess.run(
             [
@@ -61,7 +63,7 @@ def ingest_trips_dag():
 
     @task
     def run_transform_silver(container_name, dag_run=None):
-        market = dag_run.conf["market"]
+        market = MARKET
         month = dag_run.conf["month"]
         subprocess.run(
             [
@@ -79,7 +81,7 @@ def ingest_trips_dag():
 
     @task
     def run_transform_gold(container_name, dag_run=None):
-        market = dag_run.conf["market"]
+        market = MARKET
         month = dag_run.conf["month"]
         days = days_in_month(month)
         for day in range(1, days + 1):
@@ -118,4 +120,4 @@ def ingest_trips_dag():
 
     [ingest_bronze, transform_silver, transform_gold] >> cleanup
 
-ingest_trips_dag()
+ingest_jc_dag()
