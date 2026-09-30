@@ -8,6 +8,7 @@ from airflow.sdk import dag, task, TriggerRule
 import calendar
 
 MARKET = "jc"
+EARLIEST_DATE = "2021-01"
 
 def days_in_month(month: str) -> int:
     year, month = map(int, month.split("-"))

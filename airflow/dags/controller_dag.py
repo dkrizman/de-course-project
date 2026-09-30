@@ -1,12 +1,15 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from airflow.sdk import dag, task
+import psycopg
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
 DAG_MAPPING = {
     "jc": "ingest_jc",
     "nyc": "ingest_nyc",
 }
+
+PIPELINE_NAME = "trips_jc"
 
 def month_to_date(month: str) -> date:
     year, month_num = map(int, month.split("-"))
@@ -77,12 +80,45 @@ def pipeline_controller():
         target_dag,
     )
 
-    TriggerDagRunOperator.partial(
+    trigger_months = TriggerDagRunOperator.partial(
         task_id="trigger_month",
         wait_for_completion=True,
         deferrable=True,
         max_active_tis_per_dag=1,
     ).expand_kwargs(trigger_configs)
+
+    @task
+    def record_success(month, dag_run=None):
+        market = dag_run.conf["market"]
+
+        with psycopg.connect(
+            "postgresql://meridian:meridian@db:5432/meridian_trips"
+        ) as connection:
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO pipeline_control (
+                        pipeline_name,
+                        market,
+                        month,
+                        completed_at
+                    )
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (pipeline_name, market, month)
+                    DO NOTHING
+                    """,
+                    (
+                        PIPELINE_NAME,
+                        market,
+                        month,
+                        datetime.now(timezone.utc).replace(microsecond=0),
+                    ),
+                )
+
+    record = record_success.expand(month=months)
+
+    trigger_months >> record
 
 
 pipeline_controller()
