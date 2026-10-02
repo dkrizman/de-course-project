@@ -29,7 +29,7 @@ report layer job station window:
         -e WINDOW="{{window}}" \
         ingest
 
-run-pipeline market start_month end_month="":
+run-pipeline market start_month="" end_month="":
     if [ -z "{{end_month}}" ]; then \
         docker compose exec airflow airflow dags trigger pipeline_controller \
             --conf '{"market": "{{market}}", "start_month": "{{start_month}}", "end_month": "{{start_month}}"}'; \

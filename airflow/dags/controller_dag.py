@@ -44,6 +44,7 @@ def pipeline_controller():
     @task
     def get_watermark(dag_run=None):
         # our progress function to determine the watermark (latest successfully processed month) for the given market
+        # returns the first month after the latest successfully processed month
         market = dag_run.conf["market"]
         try:
             with psycopg.connect(
@@ -85,17 +86,28 @@ def pipeline_controller():
 
     @task
     def get_months(dag_run=None, watermark=None):
-        # this will be used for a progress function to pull the range of months to process based on 
-        # earliest successful run
         start_month = dag_run.conf["start_month"]
         end_month = dag_run.conf.get("end_month", start_month)
+        market = dag_run.conf["market"]
+        fallback_date = DAG_MAPPING[market]["fallback_date"]
 
-        if not start_month and not watermark:
-            market = dag_run.conf["market"]
-            start_month = DAG_MAPPING[market]["fallback_date"]
-            end_month = start_month
-
-        return month_range(watermark or start_month, end_month)
+        # if start_month and start_month == end_month:
+        #     # if only start month provided
+        #     # run only it!
+        #     watermark = start_month
+        # elif not start_month and not watermark:
+        #     # if no start month is provided and no watermark is available, 
+        #     # fall back to the default date for the market
+        #     market = dag_run.conf["market"]
+        #     start_month = DAG_MAPPING[market]["fallback_date"]
+        #     end_month = start_month
+        if start_month == "":
+            start_month = end_month = watermark or fallback_date
+            return month_range(start_month, end_month)
+        elif start_month == end_month:
+            return month_range(start_month, end_month)
+        else:
+            return month_range(watermark or start_month, end_month)
 
     @task
     def choose_dag(dag_run=None):
