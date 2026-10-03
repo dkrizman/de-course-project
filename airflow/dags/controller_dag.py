@@ -10,7 +10,7 @@ DAG_MAPPING = {
     "nyc": {"dag": "ingest_nyc", "pipeline_name": "trips_nyc", "fallback_date": "2026-01"},
 }
 
-PIPELINE_NAME = "trips_jc"
+# PIPELINE_NAME = "trips_jc"
 
 def month_to_date(month: str) -> date:
     year, month_num = map(int, month.split("-"))
@@ -65,14 +65,16 @@ def pipeline_controller():
                     result = cursor.fetchall()
 
             df = pd.DataFrame(result, columns=columns)
+            if df.empty:
+                return None
+            
             df["month_date"] = pd.to_datetime(df["month"], format="%Y-%m")
             df.sort_values(by="month_date", ascending=True, inplace=True)
 
             expected = df["month_date"] + pd.DateOffset(months=1)
             gap_mask = expected.shift(1) != df["month_date"]
-            if df.empty:
-                wm = None
-            elif gap_mask.any():
+            
+            if gap_mask.any():
                 gap_mask.iloc[0] = False
                 first_gap_pos = gap_mask.values.argmax()
                 wm = df['month'].iloc[first_gap_pos - 1]
@@ -91,16 +93,6 @@ def pipeline_controller():
         market = dag_run.conf["market"]
         fallback_date = DAG_MAPPING[market]["fallback_date"]
 
-        # if start_month and start_month == end_month:
-        #     # if only start month provided
-        #     # run only it!
-        #     watermark = start_month
-        # elif not start_month and not watermark:
-        #     # if no start month is provided and no watermark is available, 
-        #     # fall back to the default date for the market
-        #     market = dag_run.conf["market"]
-        #     start_month = DAG_MAPPING[market]["fallback_date"]
-        #     end_month = start_month
         if start_month == "":
             start_month = end_month = watermark or fallback_date
             return month_range(start_month, end_month)
@@ -152,6 +144,7 @@ def pipeline_controller():
     @task
     def record_success(month, dag_run=None):
         market = dag_run.conf["market"]
+        pipeline_name = DAG_MAPPING[market]["pipeline_name"]
 
         with psycopg.connect(
             "postgresql://meridian:meridian@db:5432/meridian_trips"
@@ -171,7 +164,7 @@ def pipeline_controller():
                     DO NOTHING
                     """,
                     (
-                        PIPELINE_NAME,
+                        pipeline_name,
                         market,
                         month,
                         datetime.now(timezone.utc).replace(microsecond=0),
