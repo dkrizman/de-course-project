@@ -5,34 +5,7 @@ from airflow.sdk import dag, task
 import psycopg
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
-DAG_MAPPING = {
-    "jc": {"dag": "ingest_jc", "pipeline_name": "trips_jc", "fallback_date": "2021-01"},
-    "nyc": {"dag": "ingest_nyc", "pipeline_name": "trips_nyc", "fallback_date": "2026-01"},
-}
-
-# PIPELINE_NAME = "trips_jc"
-
-def month_to_date(month: str) -> date:
-    year, month_num = map(int, month.split("-"))
-    return date(year, month_num, 1)
-
-
-def month_range(start_month: str, end_month: str) -> list[str]:
-    start = month_to_date(start_month)
-    end = month_to_date(end_month)
-
-    months = []
-    current = start
-
-    while current <= end:
-        months.append(current.strftime("%Y-%m"))
-
-        if current.month == 12:
-            current = date(current.year + 1, 1, 1)
-        else:
-            current = date(current.year, current.month + 1, 1)
-
-    return months
+from utils import DAG_MAPPING, month_range
 
 @dag(
     dag_id="pipeline_controller",
@@ -56,10 +29,10 @@ def pipeline_controller():
                         """
                         select *
                         from pipeline_control
-                        where market = %s
+                        where market = %s and layer = %s
                         order by month desc
                         """,
-                        (market,),
+                        (market, "Full_month_pipeline"),
                     )
                     columns = [desc.name for desc in cursor.description]
                     result = cursor.fetchall()
@@ -142,7 +115,7 @@ def pipeline_controller():
     ).expand_kwargs(trigger_configs)
 
     @task
-    def record_success(month, dag_run=None):
+    def record_success(month, layer="Full_month_pipeline", dag_run=None):
         market = dag_run.conf["market"]
         pipeline_name = DAG_MAPPING[market]["pipeline_name"]
 
@@ -157,17 +130,25 @@ def pipeline_controller():
                         pipeline_name,
                         market,
                         month,
-                        completed_at
+                        layer,
+                        completed_at,
+                        tries,
+                        status
                     )
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (pipeline_name, market, month)
-                    DO NOTHING
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (pipeline_name, market, month, layer)
+                    DO UPDATE SET
+                        tries = EXCLUDED.tries,
+                        completed_at = EXCLUDED.completed_at
                     """,
                     (
                         pipeline_name,
                         market,
                         month,
+                        layer,
                         datetime.now(timezone.utc).replace(microsecond=0),
+                        0,
+                        "succeeded",
                     ),
                 )
 

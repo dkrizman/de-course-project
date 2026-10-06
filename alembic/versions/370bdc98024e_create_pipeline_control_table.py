@@ -24,8 +24,11 @@ def upgrade() -> None:
             PIPELINE_NAME text NOT NULL,
             market text NOT NULL,
             month text NOT NULL,
+            layer text NOT NULL,
             completed_at timestamptz NOT NULL,
-            PRIMARY KEY (PIPELINE_NAME, market, month)
+            tries integer NOT NULL,
+            status text NOT NULL,
+            PRIMARY KEY (PIPELINE_NAME, market, month, layer)
         )
         """)
 

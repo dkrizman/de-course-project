@@ -25,10 +25,10 @@ def main():
         region = job
     station = os.environ.get("STATION")
 
-    needs_db = layer in {"transform-to-silver", "transform-to-gold"}
-    if needs_db:
-        print("Running database migrations...")
-        run_migrations()
+    # needs_db = layer in {"transform-to-silver", "transform-to-gold"}
+    # if needs_db:
+    print("Running database migrations...")
+    run_migrations()
 
     try:
         if layer == "ingest-to-bronze":
