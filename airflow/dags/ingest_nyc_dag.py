@@ -1,9 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import subprocess
 import uuid
 
 from airflow.sdk import dag, task, TriggerRule
+from utils import record_success
 
 import calendar
 
@@ -44,56 +45,21 @@ def ingest_nyc_dag():
 
         return container_name
 
-    @task
-    def run_ingest(container_name, dag_run=None):
+    @task(
+    retries=3,
+    retry_delay=timedelta(seconds=5),
+    )
+    def run_ingest(container_name, dag_run=None, ti=None):
         market = MARKET
         month = dag_run.conf["month"]
-        subprocess.run(
-            [
-                "docker", "exec",
-                "-e", "LAYER=ingest-to-bronze",
-                "-e", f"JOB={market}",
-                "-e", f"WINDOW={month}",
-                container_name,
-                "python", "-m", "pipeline",
-            ],
-            cwd=os.environ["PROJECT_DIR"],
-            check=True,
-            stderr=subprocess.STDOUT,
-        )
-
-    @task
-    def run_transform_silver(container_name, dag_run=None):
-        market = MARKET
-        month = dag_run.conf["month"]
-        subprocess.run(
-            [
-                "docker", "exec",
-                "-e", "LAYER=transform-to-silver",
-                "-e", f"JOB={market}",
-                "-e", f"WINDOW={month}",
-                container_name,
-                "python", "-m", "pipeline",
-            ],
-            cwd=os.environ["PROJECT_DIR"],
-            check=True,
-            stderr=subprocess.STDOUT,
-        )
-
-    @task
-    def run_transform_gold(container_name, dag_run=None):
-        market = MARKET
-        month = dag_run.conf["month"]
-        days = days_in_month(month)
-        for day in range(1, days + 1):
-            day_str = f"{month}-{day:02d}"
-            print(f"Processing day: {day_str}")
+        retries_used = ti.try_number
+        try:
             subprocess.run(
                 [
                     "docker", "exec",
-                    "-e", "LAYER=transform-to-gold",
+                    "-e", "LAYER=ingest-to-bronze",
                     "-e", f"JOB={market}",
-                    "-e", f"WINDOW={day_str}",
+                    "-e", f"WINDOW={month}",
                     container_name,
                     "python", "-m", "pipeline",
                 ],
@@ -101,6 +67,78 @@ def ingest_nyc_dag():
                 check=True,
                 stderr=subprocess.STDOUT,
             )
+
+            print(f"Ingest to bronze succeeded after {retries_used} retries")
+
+            record_success(MARKET, month, "ingest-to-bronze", retries_used, "success")
+        except subprocess.CalledProcessError as e:
+            print(f"Ingest to bronze failed: {e}")
+            record_success(MARKET, month, "ingest-to-bronze", retries_used, "failed")
+
+    @task(
+    retries=3,
+    retry_delay=timedelta(seconds=5),
+    )
+    def run_transform_silver(container_name, dag_run=None, ti=None):
+        market = MARKET
+        month = dag_run.conf["month"]
+        retries_used = ti.try_number
+        try:
+            subprocess.run(
+                [
+                    "docker", "exec",
+                    "-e", "LAYER=transform-to-silver",
+                    "-e", f"JOB={market}",
+                    "-e", f"WINDOW={month}",
+                    container_name,
+                    "python", "-m", "pipeline",
+                ],
+                cwd=os.environ["PROJECT_DIR"],
+                check=True,
+                stderr=subprocess.STDOUT,
+            )
+            print(f"Transform to silver succeeded after {retries_used} retries")
+            record_success(MARKET, month, "transform-to-silver", retries_used, "success")
+        except subprocess.CalledProcessError as e:
+            print(f"Transform to silver failed: {e}")
+            record_success(MARKET, month, "transform-to-silver", retries_used, "failed")
+
+    @task(
+    retries=3,
+    retry_delay=timedelta(seconds=5),
+    )
+    def run_transform_gold(container_name, dag_run=None, ti=None):
+        market = MARKET
+        month = dag_run.conf["month"]
+        days = days_in_month(month)
+        failed_days = []
+        retries_used = ti.try_number
+        for day in range(1, days + 1):
+            try:
+                day_str = f"{month}-{day:02d}"
+                print(f"Processing day: {day_str}")
+                subprocess.run(
+                    [
+                        "docker", "exec",
+                        "-e", "LAYER=transform-to-gold",
+                        "-e", f"JOB={market}",
+                        "-e", f"WINDOW={day_str}",
+                        container_name,
+                        "python", "-m", "pipeline",
+                    ],
+                    cwd=os.environ["PROJECT_DIR"],
+                    check=True,
+                    stderr=subprocess.STDOUT,
+                )
+            except subprocess.CalledProcessError as e:
+                print(f"Transform to gold failed for day {day_str}: {e}")
+                failed_days.append(day_str)
+        if failed_days:
+            print(f"Transform to gold failed for days: {', '.join(failed_days)}")
+            record_success(MARKET, month, "transform-to-gold", retries_used, "failed", days, failed_days)
+        else:
+            print(f"Transform to gold succeeded after {retries_used} retries")
+            record_success(MARKET, month, "transform-to-gold", retries_used, "success", days, failed_days)
 
     @task(trigger_rule=TriggerRule.ALL_DONE)
     def cleanup_container(container_name):
