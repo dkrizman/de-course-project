@@ -52,6 +52,7 @@ def ingest_jc_dag():
     def run_ingest(container_name, dag_run=None, ti=None):
         market = MARKET
         month = dag_run.conf["month"]
+        retries_used = ti.try_number
         try:
             subprocess.run(
                 [
@@ -67,10 +68,9 @@ def ingest_jc_dag():
                 stderr=subprocess.STDOUT,
             )
 
-            retries_used = ti.try_number - 1
             print(f"Ingest to bronze succeeded after {retries_used} retries")
 
-            record_success(MARKET, month, "ingest-to-bronze", retries_used, "succeeded")
+            record_success(MARKET, month, "ingest-to-bronze", retries_used, "success")
         except subprocess.CalledProcessError as e:
             print(f"Ingest to bronze failed: {e}")
             record_success(MARKET, month, "ingest-to-bronze", retries_used, "failed")
@@ -82,6 +82,7 @@ def ingest_jc_dag():
     def run_transform_silver(container_name, dag_run=None, ti=None):
         market = MARKET
         month = dag_run.conf["month"]
+        retries_used = ti.try_number
         try:
             subprocess.run(
                 [
@@ -96,9 +97,8 @@ def ingest_jc_dag():
                 check=True,
                 stderr=subprocess.STDOUT,
             )
-            retries_used = ti.try_number - 1
             print(f"Transform to silver succeeded after {retries_used} retries")
-            record_success(MARKET, month, "transform-to-silver", retries_used, "succeeded")
+            record_success(MARKET, month, "transform-to-silver", retries_used, "success")
         except subprocess.CalledProcessError as e:
             print(f"Transform to silver failed: {e}")
             record_success(MARKET, month, "transform-to-silver", retries_used, "failed")
@@ -112,6 +112,7 @@ def ingest_jc_dag():
         month = dag_run.conf["month"]
         days = days_in_month(month)
         failed_days = []
+        retries_used = ti.try_number
         for day in range(1, days + 1):
             try:
                 day_str = f"{month}-{day:02d}"
@@ -132,13 +133,12 @@ def ingest_jc_dag():
             except subprocess.CalledProcessError as e:
                 print(f"Transform to gold failed for day {day_str}: {e}")
                 failed_days.append(day_str)
-        retries_used = ti.try_number
         if failed_days:
             print(f"Transform to gold failed for days: {', '.join(failed_days)}")
-            record_success(MARKET, month, "transform-to-gold", retries_used, "failed")
+            record_success(MARKET, month, "transform-to-gold", retries_used, "failed", days, failed_days)
         else:
             print(f"Transform to gold succeeded after {retries_used} retries")
-            record_success(MARKET, month, "transform-to-gold", retries_used, "succeeded")
+            record_success(MARKET, month, "transform-to-gold", retries_used, "success", days, failed_days)
 
     @task(trigger_rule=TriggerRule.ALL_DONE)
     def cleanup_container(container_name):

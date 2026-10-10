@@ -37,3 +37,9 @@ run-pipeline market start_month="" end_month="":
         docker compose exec airflow airflow dags trigger pipeline_controller \
             --conf '{"market": "{{market}}", "start_month": "{{start_month}}", "end_month": "{{end_month}}"}'; \
     fi
+
+inspect-pipeline command job:
+    docker compose --profile ingest run --rm --build \
+        -e COMMAND="{{command}}" \
+        -e JOB="{{job}}" \
+        ingest

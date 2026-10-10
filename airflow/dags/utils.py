@@ -30,7 +30,7 @@ def month_range(start_month: str, end_month: str) -> list[str]:
     return months
 
 
-def record_success(market, month, layer, tries, status):
+def record_success(market, month, layer, tries, status, days=None, failed_days=None):
     pipeline_name = DAG_MAPPING[market]["pipeline_name"]
 
     with psycopg.connect(
@@ -47,9 +47,11 @@ def record_success(market, month, layer, tries, status):
                     layer,
                     completed_at,
                     tries,
-                    status
+                    status,
+                    days,
+                    failed_days
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (pipeline_name, market, month, layer)
                 DO NOTHING
                 """,
@@ -61,5 +63,7 @@ def record_success(market, month, layer, tries, status):
                     datetime.now(timezone.utc).replace(microsecond=0),
                     tries,
                     status,
+                    days,
+                    failed_days,
                 ),
             )

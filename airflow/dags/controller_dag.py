@@ -29,10 +29,10 @@ def pipeline_controller():
                         """
                         select *
                         from pipeline_control
-                        where market = %s and layer = %s
+                        where market = %s and layer = %s and status = %s
                         order by month desc
                         """,
-                        (market, "Full_month_pipeline"),
+                        (market, "transform-to-gold", "success"),
                     )
                     columns = [desc.name for desc in cursor.description]
                     result = cursor.fetchall()
@@ -114,47 +114,47 @@ def pipeline_controller():
         max_active_tis_per_dag=1,
     ).expand_kwargs(trigger_configs)
 
-    @task
-    def record_success(month, layer="Full_month_pipeline", dag_run=None):
-        market = dag_run.conf["market"]
-        pipeline_name = DAG_MAPPING[market]["pipeline_name"]
+    # @task
+    # def record_success(month, layer="Full_month_pipeline", dag_run=None):
+    #     market = dag_run.conf["market"]
+    #     pipeline_name = DAG_MAPPING[market]["pipeline_name"]
 
-        with psycopg.connect(
-            "postgresql://meridian:meridian@db:5432/meridian_trips"
-        ) as connection:
+    #     with psycopg.connect(
+    #         "postgresql://meridian:meridian@db:5432/meridian_trips"
+    #     ) as connection:
 
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO pipeline_control (
-                        pipeline_name,
-                        market,
-                        month,
-                        layer,
-                        completed_at,
-                        tries,
-                        status
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (pipeline_name, market, month, layer)
-                    DO UPDATE SET
-                        tries = EXCLUDED.tries,
-                        completed_at = EXCLUDED.completed_at
-                    """,
-                    (
-                        pipeline_name,
-                        market,
-                        month,
-                        layer,
-                        datetime.now(timezone.utc).replace(microsecond=0),
-                        0,
-                        "succeeded",
-                    ),
-                )
+    #         with connection.cursor() as cursor:
+    #             cursor.execute(
+    #                 """
+    #                 INSERT INTO pipeline_control (
+    #                     pipeline_name,
+    #                     market,
+    #                     month,
+    #                     layer,
+    #                     completed_at,
+    #                     tries,
+    #                     status
+    #                 )
+    #                 VALUES (%s, %s, %s, %s, %s, %s, %s)
+    #                 ON CONFLICT (pipeline_name, market, month, layer)
+    #                 DO UPDATE SET
+    #                     tries = EXCLUDED.tries,
+    #                     completed_at = EXCLUDED.completed_at
+    #                 """,
+    #                 (
+    #                     pipeline_name,
+    #                     market,
+    #                     month,
+    #                     layer,
+    #                     datetime.now(timezone.utc).replace(microsecond=0),
+    #                     0,
+    #                     "succeeded",
+    #                 ),
+    #             )
 
-    record = record_success.expand(month=months)
+    # record = record_success.expand(month=months)
 
-    trigger_months >> record
+    trigger_months #>> record
 
 
 pipeline_controller()

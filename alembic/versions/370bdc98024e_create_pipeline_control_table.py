@@ -28,6 +28,8 @@ def upgrade() -> None:
             completed_at timestamptz NOT NULL,
             tries integer NOT NULL,
             status text NOT NULL,
+            days integer,
+            failed_days text[],
             PRIMARY KEY (PIPELINE_NAME, market, month, layer)
         )
         """)
