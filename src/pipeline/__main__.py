@@ -1,6 +1,7 @@
 import os
 from alembic.config import Config
 from alembic.command import upgrade
+from pipeline.pipeline_utils.dag_inspect import get_coverage, get_runs_metrics
 from pipeline.data_ingest.data_detection import ingest_to_bronze
 from pipeline.silver_layer_processing.ingest import inspect_silver, transform_to_silver
 from pipeline.silver_layer_processing.migrate import run_migrations
@@ -16,19 +17,33 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname
 def main():
     """Main entry point"""
 
-    layer = os.environ["LAYER"]
+    print("Running database migrations...")
+    run_migrations()
+
+    command = os.environ.get("COMMAND")
     job = os.environ["JOB"]
-    window = os.environ["WINDOW"]
     if ":" in job:
         region = job.split(":")[1]
     else:
         region = job
     station = os.environ.get("STATION")
 
-    needs_db = layer in {"transform-to-silver", "transform-to-gold"}
-    if needs_db:
-        print("Running database migrations...")
-        run_migrations()
+    if command == "coverage":
+        with psycopg.connect(database_url()) as conn:
+            coverage_metrics = get_coverage(conn, region)
+            print(coverage_metrics)
+        return
+
+    if command == "runs":
+        with psycopg.connect(database_url()) as conn:
+            runs_metrics = get_runs_metrics(conn, region)
+            print(runs_metrics)
+        return
+
+    layer = os.environ["LAYER"]
+    window = os.environ["WINDOW"]
+
+
 
     try:
         if layer == "ingest-to-bronze":
