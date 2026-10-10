@@ -1,5 +1,12 @@
 up:
     docker compose up -d --build
+    @until curl -fsS http://localhost:8080/api/v2/monitor/health >/dev/null; do \
+        echo "Waiting for Airflow to become ready..."; \
+        sleep 2; \
+    done
+    docker compose exec airflow airflow dags unpause pipeline_controller && \
+    docker compose exec airflow airflow dags unpause ingest_jc && \
+    docker compose exec airflow airflow dags unpause ingest_nyc
 
 down:
     docker compose down -v
@@ -43,3 +50,7 @@ inspect-pipeline command job:
         -e COMMAND="{{command}}" \
         -e JOB="{{job}}" \
         ingest
+
+schedule:
+    docker compose exec airflow airflow dags unpause schedule_jc_pipeline && \
+    docker compose exec airflow airflow dags unpause schedule_nyc_pipeline
