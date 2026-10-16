@@ -74,6 +74,7 @@ def ingest_nyc_dag():
         except subprocess.CalledProcessError as e:
             print(f"Ingest to bronze failed: {e}")
             record_success(MARKET, month, "ingest-to-bronze", retries_used, "failed")
+            raise
 
     @task(
     retries=3,
@@ -102,6 +103,7 @@ def ingest_nyc_dag():
         except subprocess.CalledProcessError as e:
             print(f"Transform to silver failed: {e}")
             record_success(MARKET, month, "transform-to-silver", retries_used, "failed")
+            raise
 
     @task(
     retries=3,
@@ -136,6 +138,7 @@ def ingest_nyc_dag():
         if failed_days:
             print(f"Transform to gold failed for days: {', '.join(failed_days)}")
             record_success(MARKET, month, "transform-to-gold", retries_used, "failed", days, failed_days)
+            raise
         else:
             print(f"Transform to gold succeeded after {retries_used} retries")
             record_success(MARKET, month, "transform-to-gold", retries_used, "success", days, failed_days)

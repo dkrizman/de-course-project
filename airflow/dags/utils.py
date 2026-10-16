@@ -16,6 +16,9 @@ def month_range(start_month: str, end_month: str) -> list[str]:
     start = month_to_date(start_month)
     end = month_to_date(end_month)
 
+    if start > end:
+        raise ValueError("start_month must be less than or equal to end_month")
+
     months = []
     current = start
 
@@ -53,7 +56,12 @@ def record_success(market, month, layer, tries, status, days=None, failed_days=N
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (pipeline_name, market, month, layer)
-                DO NOTHING
+                DO UPDATE SET
+                    completed_at = EXCLUDED.completed_at,
+                    tries = EXCLUDED.tries,
+                    status = EXCLUDED.status,
+                    days = EXCLUDED.days,
+                    failed_days = EXCLUDED.failed_days
                 """,
                 (
                     pipeline_name,
