@@ -136,9 +136,13 @@ def ingest_jc_dag():
                 print(f"Transform to gold failed for day {day_str}: {e}")
                 failed_days.append(day_str)
         if failed_days:
-            print(f"Transform to gold failed for days: {', '.join(failed_days)}")
+            msg = (
+                f"Transform to gold failed for {len(failed_days)}/{days} days: "
+                f"{', '.join(failed_days)}"
+            )
+            print(msg)
             record_success(MARKET, month, "transform-to-gold", retries_used, "failed", days, failed_days)
-            raise
+            raise RuntimeError(msg)
         else:
             print(f"Transform to gold succeeded after {retries_used} retries")
             record_success(MARKET, month, "transform-to-gold", retries_used, "success", days, failed_days)
