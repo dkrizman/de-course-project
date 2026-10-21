@@ -46,32 +46,32 @@ def get_coverage(conn: psycopg.Connection, market: str):
 
 def get_stats_for_month(monthly_data, month, market):
     status = monthly_data[monthly_data['status'] != 'success']
+
+    # A layer can be absent for a given month (e.g. container startup failure or
+    # an interrupted DAG), so guard each lookup against an empty result instead
+    # of indexing into it directly.
+    bronze = monthly_data[(monthly_data['month'] == month) & (monthly_data['layer'] == 'ingest-to-bronze')]
+    silver = monthly_data[(monthly_data['month'] == month) & (monthly_data['layer'] == 'transform-to-silver')]
+    gold = monthly_data[(monthly_data['month'] == month) & (monthly_data['layer'] == 'transform-to-gold')]
+
     stats = {
         "month": month,
         "type" : "manual", #placeholder
         "state": "success" if status.empty else "failed",
         "tasks": {
             f"ingest-to-bronze trips:{market} {month}": {
-                "state": "success" if monthly_data[(monthly_data['month'] == month)\
-                                    & (monthly_data['layer'] == 'ingest-to-bronze')]['status'].values[0] == 'success' else "failed",
-                "tries": int(monthly_data[(monthly_data['month'] == month)
-                                    & (monthly_data['layer'] == 'ingest-to-bronze')]['tries'].values[0])
+                "state": "success" if not bronze.empty and bronze['status'].values[0] == 'success' else "failed",
+                "tries": int(bronze['tries'].values[0]) if not bronze.empty else 0
             },
             f"transform-to-silver:{market} {month}": {
-                    "state": "success" if monthly_data[(monthly_data['month'] == month)\
-                                        & (monthly_data['layer'] == 'transform-to-silver')]['status'].values[0] == 'success' else "failed",
-                    "tries": int(monthly_data[(monthly_data['month'] == month)
-                                        & (monthly_data['layer'] == 'transform-to-silver')]['tries'].values[0])
+                    "state": "success" if not silver.empty and silver['status'].values[0] == 'success' else "failed",
+                    "tries": int(silver['tries'].values[0]) if not silver.empty else 0
                 },
             f"transform-to-gold:{market} {month}": {
-                    "state": "success" if monthly_data[(monthly_data['month'] == month)\
-                                        & (monthly_data['layer'] == 'transform-to-gold')]['status'].values[0] == 'success' else "failed",
-                    "tries": int(monthly_data[(monthly_data['month'] == month)
-                                        & (monthly_data['layer'] == 'transform-to-gold')]['tries'].values[0]),
-                    "days": int(monthly_data[(monthly_data['month'] == month)
-                                        & (monthly_data['layer'] == 'transform-to-gold')]['days'].values[0]),
-                    "failed_days": monthly_data[(monthly_data['month'] == month)
-                                        & (monthly_data['layer'] == 'transform-to-gold')]['failed_days'].values[0],
+                    "state": "success" if not gold.empty and gold['status'].values[0] == 'success' else "failed",
+                    "tries": int(gold['tries'].values[0]) if not gold.empty else 0,
+                    "days": int(gold['days'].values[0]) if not gold.empty else 0,
+                    "failed_days": gold['failed_days'].values[0] if not gold.empty else [],
                 },
         }
     }
