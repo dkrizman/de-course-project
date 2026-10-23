@@ -20,6 +20,7 @@ def days_in_month(month: str) -> int:
     schedule=None,
     start_date=datetime(2025, 1, 1),
     catchup=False,
+    max_active_runs=1,
     tags=["bronze"],
 )
 def ingest_jc_dag():

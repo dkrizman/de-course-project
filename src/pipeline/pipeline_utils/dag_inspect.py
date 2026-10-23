@@ -47,9 +47,6 @@ def get_coverage(conn: psycopg.Connection, market: str):
 def get_stats_for_month(monthly_data, month, market):
     status = monthly_data[monthly_data['status'] != 'success']
 
-    # A layer can be absent for a given month (e.g. container startup failure or
-    # an interrupted DAG), so guard each lookup against an empty result instead
-    # of indexing into it directly.
     bronze = monthly_data[(monthly_data['month'] == month) & (monthly_data['layer'] == 'ingest-to-bronze')]
     silver = monthly_data[(monthly_data['month'] == month) & (monthly_data['layer'] == 'transform-to-silver')]
     gold = monthly_data[(monthly_data['month'] == month) & (monthly_data['layer'] == 'transform-to-gold')]

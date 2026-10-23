@@ -51,6 +51,35 @@ inspect-pipeline command job:
         -e JOB="{{job}}" \
         ingest
 
-schedule:
-    docker compose exec airflow airflow dags unpause schedule_jc_pipeline && \
-    docker compose exec airflow airflow dags unpause schedule_nyc_pipeline
+
+schedule market state:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    case "{{market}}" in
+        jc)
+            dag="schedule_jc_pipeline"
+            ;;
+        nyc)
+            dag="schedule_nyc_pipeline"
+            ;;
+        *)
+            echo "Error: unknown market '{{market}}'. Use jc or nyc." >&2
+            exit 1
+            ;;
+    esac
+
+    case "{{state}}" in
+        on)
+            action="unpause"
+            ;;
+        off)
+            action="pause"
+            ;;
+        *)
+            echo "Error: invalid state '{{state}}'. Use on or off." >&2
+            exit 1
+            ;;
+    esac
+
+    docker compose exec airflow airflow dags "$action" "$dag"

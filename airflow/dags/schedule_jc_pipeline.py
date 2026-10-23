@@ -10,7 +10,8 @@ from airflow.providers.standard.operators.trigger_dagrun import (
     dag_id="schedule_jc_pipeline",
     schedule="0 6 1 * *",
     start_date=datetime(2025, 1, 1),
-    catchup=False,
+    catchup=True,
+    max_active_runs=1,
     tags=["scheduler", "jc"],
 )
 def schedule_jc_pipeline():

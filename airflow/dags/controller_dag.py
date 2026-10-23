@@ -11,6 +11,7 @@ from utils import DAG_MAPPING, month_range
     dag_id="pipeline_controller",
     schedule=None,
     catchup=False,
+    max_active_runs=1,
 )
 def pipeline_controller():
 
@@ -113,46 +114,6 @@ def pipeline_controller():
         deferrable=True,
         max_active_tis_per_dag=1,
     ).expand_kwargs(trigger_configs)
-
-    # @task
-    # def record_success(month, layer="Full_month_pipeline", dag_run=None):
-    #     market = dag_run.conf["market"]
-    #     pipeline_name = DAG_MAPPING[market]["pipeline_name"]
-
-    #     with psycopg.connect(
-    #         "postgresql://meridian:meridian@db:5432/meridian_trips"
-    #     ) as connection:
-
-    #         with connection.cursor() as cursor:
-    #             cursor.execute(
-    #                 """
-    #                 INSERT INTO pipeline_control (
-    #                     pipeline_name,
-    #                     market,
-    #                     month,
-    #                     layer,
-    #                     completed_at,
-    #                     tries,
-    #                     status
-    #                 )
-    #                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-    #                 ON CONFLICT (pipeline_name, market, month, layer)
-    #                 DO UPDATE SET
-    #                     tries = EXCLUDED.tries,
-    #                     completed_at = EXCLUDED.completed_at
-    #                 """,
-    #                 (
-    #                     pipeline_name,
-    #                     market,
-    #                     month,
-    #                     layer,
-    #                     datetime.now(timezone.utc).replace(microsecond=0),
-    #                     0,
-    #                     "succeeded",
-    #                 ),
-    #             )
-
-    # record = record_success.expand(month=months)
 
     trigger_months #>> record
 
