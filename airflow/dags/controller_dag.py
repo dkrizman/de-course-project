@@ -5,7 +5,7 @@ from airflow.sdk import dag, task
 import psycopg
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
-from utils import DAG_MAPPING, month_range
+from utils import DAG_MAPPING, month_range, month_to_date
 
 @dag(
     dag_id="pipeline_controller",
@@ -66,6 +66,12 @@ def pipeline_controller():
         end_month = dag_run.conf.get("end_month", start_month)
         market = dag_run.conf["market"]
         fallback_date = DAG_MAPPING[market]["fallback_date"]
+
+        if start_month != "" and month_to_date(start_month) < month_to_date(fallback_date):
+            raise ValueError(f"Start month {start_month} is before the fallback date {fallback_date}")
+
+        if end_month != "" and month_to_date(end_month) >= date.today().replace(day=1):
+            raise ValueError(f"End month {end_month} is out of the data scope")
 
         if start_month == "":
             start_month = end_month = watermark or fallback_date
