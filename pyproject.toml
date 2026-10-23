@@ -20,7 +20,7 @@ dev = [
 package-dir = {"" = "src"}
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "tools"]
+pythonpath = [".", "src", "tools"]
 testpaths = ["tests"]
 # WHETHER an end-to-end test runs is a question of intent, so it is a marker — never an environment
 # variable. `uv run pytest` skips it; `uv run pytest -m e2e` asks for it, on purpose, and waits.
